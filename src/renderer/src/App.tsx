@@ -4,8 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Code2,
-  Edit3,
-  Eye,
   Hash,
   Heading1,
   Heading2,
@@ -33,6 +31,7 @@ import remarkGfm from 'remark-gfm';
 import { isDateKeyInput } from '../../shared/date-input';
 import { defaultNoteContent } from '../../shared/daily-notes';
 import { addDaysToKey } from '../../shared/date-utils';
+import { createLivePreviewMarkdown } from '../../shared/markdown-live-preview';
 import { applyBlockFormat, applyInlineFormat, handleEditorEnter, indentLineAtCursor, toggleChecklistAtCursor } from '../../shared/editor-actions';
 import type { BlockFormat, InlineFormat, SelectionResult } from '../../shared/editor-actions';
 import { applySlashCommand, filterSlashCommands, getSlashQuery } from '../../shared/slash-commands';
@@ -40,7 +39,6 @@ import type { SlashCommandId } from '../../shared/slash-commands';
 import type { StickyCorner } from '../../shared/window-placement';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-type Mode = 'edit' | 'preview';
 
 const cornerActions: Array<{ corner: StickyCorner; title: string; icon: ReactElement }> = [
   { corner: 'top-left', title: '吸附左上角', icon: <MoveUpLeft size={14} /> },
@@ -99,7 +97,6 @@ export default function App(): ReactElement {
   const [windowId] = useState(getInitialWindowId);
   const [dateKey, setDateKey] = useState('');
   const [content, setContent] = useState(defaultNoteContent);
-  const [mode, setMode] = useState<Mode>('edit');
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -115,6 +112,7 @@ export default function App(): ReactElement {
 
   const dateLabel = useMemo(() => (dateKey ? formatDateLabel(dateKey) : '...'), [dateKey]);
   const slashMatches = useMemo(() => filterSlashCommands(slashQuery ?? ''), [slashQuery]);
+  const previewMarkdown = useMemo(() => createLivePreviewMarkdown(content), [content]);
 
   const updateSlashMenu = useCallback(
     (nextContent = content, cursor = textareaRef.current?.selectionStart ?? 0) => {
@@ -471,15 +469,6 @@ export default function App(): ReactElement {
       </section>
 
       <section className="tool-row">
-        <div className="segmented" aria-label="编辑模式">
-          <button className={mode === 'edit' ? 'selected' : ''} onClick={() => setMode('edit')} title="编辑">
-            <Edit3 size={15} />
-          </button>
-          <button className={mode === 'preview' ? 'selected' : ''} onClick={() => setMode('preview')} title="预览">
-            <Eye size={16} />
-          </button>
-        </div>
-
         <div className="corner-dock" aria-label="吸附到屏幕角落">
           {cornerActions.map((action) => (
             <button key={action.corner} title={action.title} aria-label={action.title} onClick={() => snapToCorner(action.corner)}>
@@ -491,99 +480,96 @@ export default function App(): ReactElement {
         <div className={`save-state ${saveState}`}>{statusText}</div>
       </section>
 
-      <section className={`note-plane ${mode === 'edit' ? 'editing' : ''}`}>
-        {mode === 'edit' ? (
-          <>
-            <div className="editor-ribbon" aria-label="编辑工具">
-              <div className="editor-group">
-                <button
-                  className="insert-menu-button"
-                  title="插入块"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setShowInsertMenu((value) => !value);
-                    setSlashQuery(undefined);
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>插入</span>
-                </button>
-              </div>
-              <div className="editor-group compact">
-                <button title="正文" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock('paragraph')}>
-                  <Type size={14} />
-                </button>
-                <button title="标题" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock('heading1')}>
-                  <Hash size={14} />
-                </button>
-                <button title="待办完成/取消" onMouseDown={(event) => event.preventDefault()} onClick={toggleChecklist}>
-                  <CheckSquare size={14} />
-                </button>
-              </div>
-              <div className="editor-group compact">
-                <button title="加粗" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('bold')}>
-                  <Bold size={14} />
-                </button>
-                <button title="斜体" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('italic')}>
-                  <Italic size={14} />
-                </button>
-                <button title="行内代码" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('code')}>
-                  <Code2 size={14} />
-                </button>
-              </div>
-            </div>
-            {showInsertMenu ? (
-              <div className="block-menu">
-                {blockActions.map((action) => (
-                  <button
-                    key={action.format}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      applyBlock(action.format);
-                    }}
-                  >
-                    {action.icon}
-                    <span>{action.title}</span>
-                    <small>{action.hint}</small>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {slashQuery !== undefined && slashMatches.length > 0 ? (
-              <div className="slash-menu" style={{ top: slashMenuTop }}>
-                {slashMatches.map((command, index) => (
-                <button
-                  key={command.id}
-                  className={index === selectedSlashIndex ? 'selected' : ''}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    selectSlashCommand(command.id);
-                  }}
-                >
-                  <span>{command.label}</span>
-                  <small>{command.hint}</small>
-                </button>
-              ))}
-              </div>
-            ) : null}
-            <textarea
-              ref={textareaRef}
-              value={content}
-              spellCheck={false}
-              onChange={(event) => handleTextareaChange(event.target.value, event.target.selectionStart)}
-              onKeyDown={handleTextareaKeyDown}
-              onKeyUp={() => updateSlashMenu()}
-              onClick={() => updateSlashMenu()}
-              onSelect={() => updateSlashMenu()}
-              onScroll={() => updateSlashMenu()}
-              aria-label="Markdown 便利贴内容"
-            />
-          </>
-        ) : (
-          <article className="markdown-preview">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || '_空_'}</ReactMarkdown>
+      <section className="note-plane live-editing">
+        <div className="editor-ribbon" aria-label="编辑工具">
+          <div className="editor-group">
+            <button
+              className="insert-menu-button"
+              title="插入块"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setShowInsertMenu((value) => !value);
+                setSlashQuery(undefined);
+              }}
+            >
+              <Plus size={14} />
+              <span>插入</span>
+            </button>
+          </div>
+          <div className="editor-group compact">
+            <button title="正文" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock('paragraph')}>
+              <Type size={14} />
+            </button>
+            <button title="标题" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock('heading1')}>
+              <Hash size={14} />
+            </button>
+            <button title="待办完成/取消" onMouseDown={(event) => event.preventDefault()} onClick={toggleChecklist}>
+              <CheckSquare size={14} />
+            </button>
+          </div>
+          <div className="editor-group compact">
+            <button title="加粗" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('bold')}>
+              <Bold size={14} />
+            </button>
+            <button title="斜体" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('italic')}>
+              <Italic size={14} />
+            </button>
+            <button title="行内代码" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat('code')}>
+              <Code2 size={14} />
+            </button>
+          </div>
+        </div>
+        {showInsertMenu ? (
+          <div className="block-menu">
+            {blockActions.map((action) => (
+              <button
+                key={action.format}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  applyBlock(action.format);
+                }}
+              >
+                {action.icon}
+                <span>{action.title}</span>
+                <small>{action.hint}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {slashQuery !== undefined && slashMatches.length > 0 ? (
+          <div className="slash-menu" style={{ top: slashMenuTop }}>
+            {slashMatches.map((command, index) => (
+              <button
+                key={command.id}
+                className={index === selectedSlashIndex ? 'selected' : ''}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  selectSlashCommand(command.id);
+                }}
+              >
+                <span>{command.label}</span>
+                <small>{command.hint}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="live-canvas">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            spellCheck={false}
+            onChange={(event) => handleTextareaChange(event.target.value, event.target.selectionStart)}
+            onKeyDown={handleTextareaKeyDown}
+            onKeyUp={() => updateSlashMenu()}
+            onClick={() => updateSlashMenu()}
+            onSelect={() => updateSlashMenu()}
+            onScroll={() => updateSlashMenu()}
+            aria-label="Markdown 便利贴内容"
+          />
+          <article className="markdown-preview live-preview" aria-label="Markdown 实时预览">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewMarkdown}</ReactMarkdown>
           </article>
-        )}
+        </div>
       </section>
 
     </main>

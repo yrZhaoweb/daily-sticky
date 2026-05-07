@@ -12,7 +12,7 @@ import {
   updateNoteContent
 } from '../shared/daily-notes';
 import { getTodayKey } from '../shared/date-utils';
-import { snapBoundsToCorner } from '../shared/window-placement';
+import { ensureBoundsVisible, snapBoundsToCorner } from '../shared/window-placement';
 import type { DailyNote, DailyNotesState, StickyWindowBounds } from '../shared/daily-notes';
 import type { StickyCorner } from '../shared/window-placement';
 
@@ -47,6 +47,11 @@ const store = new Store<AppStore>({
 });
 
 const noteWindows = new Map<string, BrowserWindow>();
+const singleInstanceLock = app.requestSingleInstanceLock();
+
+if (!singleInstanceLock) {
+  app.quit();
+}
 
 function getNotesState(): DailyNotesState {
   const notes = migrateNotesState(store.get('notes'));
@@ -77,12 +82,14 @@ function applyAlwaysOnTop(window: BrowserWindow, alwaysOnTop = store.get('always
 }
 
 function getInitialBounds(note: DailyNote, windowRecord?: StickyWindowRecord): StickyWindowBounds {
+  const visibleDisplays = screen.getAllDisplays().map((display) => display.workArea);
+
   if (windowRecord?.windowBounds) {
-    return windowRecord.windowBounds;
+    return ensureBoundsVisible(windowRecord.windowBounds, visibleDisplays, 18);
   }
 
   if (note.windowBounds) {
-    return note.windowBounds;
+    return ensureBoundsVisible(note.windowBounds, visibleDisplays, 18);
   }
 
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -126,6 +133,7 @@ function createNoteWindow(note: DailyNote, windowId = createWindowId()): Browser
 
   if (existing && !existing.isDestroyed()) {
     existing.show();
+    existing.restore();
     existing.focus();
     return existing;
   }
@@ -169,6 +177,7 @@ function createNoteWindow(note: DailyNote, windowId = createWindowId()): Browser
 
   window.once('ready-to-show', () => {
     window.show();
+    window.focus();
   });
 
   window.on('move', () => rememberWindowBounds(windowId, window));
@@ -179,26 +188,38 @@ function createNoteWindow(note: DailyNote, windowId = createWindowId()): Browser
 }
 
 function createOrOpenPrimaryWindowForToday(): void {
+  const existingWindows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed());
+
+  if (existingWindows.length > 0) {
+    const [firstWindow] = existingWindows;
+    firstWindow.restore();
+    firstWindow.show();
+    firstWindow.focus();
+    return;
+  }
+
   const dateKey = getTodayKey();
   const result = ensureNoteForDate(getNotesState(), dateKey, Date.now());
   persistNotesState(result.state);
   createNoteWindow(result.note);
 }
 
-app.whenReady().then(() => {
-  createOrOpenPrimaryWindowForToday();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createOrOpenPrimaryWindowForToday();
-    }
+if (singleInstanceLock) {
+  app.on('second-instance', () => {
+    createOrOpenPrimaryWindowForToday();
   });
-});
+
+  app.whenReady().then(() => {
+    createOrOpenPrimaryWindowForToday();
+
+    app.on('activate', () => {
+      createOrOpenPrimaryWindowForToday();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 ipcMain.handle('date:today', () => getTodayKey());

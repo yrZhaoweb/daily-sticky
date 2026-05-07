@@ -35,3 +35,30 @@ export function snapBoundsToCorner(
     height: windowSize.height
   };
 }
+
+function hasVisibleOverlap(bounds: StickyWindowBounds, displayBounds: VisibleDisplayBounds, minimumVisibleArea = 64): boolean {
+  const left = Math.max(bounds.x, displayBounds.x);
+  const right = Math.min(bounds.x + bounds.width, displayBounds.x + displayBounds.width);
+  const top = Math.max(bounds.y, displayBounds.y);
+  const bottom = Math.min(bounds.y + bounds.height, displayBounds.y + displayBounds.height);
+
+  return right - left >= minimumVisibleArea && bottom - top >= minimumVisibleArea;
+}
+
+export function ensureBoundsVisible(
+  bounds: StickyWindowBounds,
+  displays: VisibleDisplayBounds[],
+  margin = 16
+): StickyWindowBounds {
+  if (displays.some((displayBounds) => hasVisibleOverlap(bounds, displayBounds))) {
+    return bounds;
+  }
+
+  const primaryDisplay = displays[0];
+
+  if (!primaryDisplay) {
+    return bounds;
+  }
+
+  return snapBoundsToCorner(primaryDisplay, bounds, 'top-right', margin);
+}

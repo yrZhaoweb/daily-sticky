@@ -9,7 +9,7 @@ Daily Sticky 是一个纯本地的 macOS Markdown 便利贴应用。它默认置
 - 每个窗口可以独立切换日期，右侧 `+` 才会新建便利贴窗口
 - 同一天的数据只有一份，多个窗口打开同一日期时会自动同步内容
 - 按 `YYYY-MM-DD` 存储每天的便利贴内容
-- 支持 Markdown 编辑与预览，包含 GFM 表格和 checklist
+- 单页 Markdown live canvas：输入 Markdown 的同时在同一页面实时看到渲染效果，包含 GFM 表格和 checklist
 - Notion 风格 `/` 命令，可快速插入标题、待办、列表、编号列表、表格、引用、代码块和分割线
 - 顶部插入菜单可把当前行转换为正文、标题、待办、列表、引用等块
 - 自动保存到本机 Electron 用户数据目录
@@ -55,6 +55,7 @@ open "dist/mac-arm64/Daily Sticky.app"
 
 ## 编辑器用法
 
+- 编辑区和预览区在同一个页面内同步显示，不需要切换编辑/预览模式
 - 输入 `/` 打开块命令菜单
 - `Enter` 会延续 checklist、项目符号列表和编号列表
 - 在空 checklist 或空列表项里按 `Enter` 会退出当前列表
