@@ -1,0 +1,11 @@
+node_modules/
+out/
+dist/
+release/
+docs/superpowers/
+.DS_Store
+*.log
+*.local
+.env
+.env.*
+!.env.example

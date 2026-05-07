@@ -1,0 +1,55 @@
+{
+  "name": "daily-sticky",
+  "version": "0.1.0",
+  "description": "A local-first macOS daily sticky note app.",
+  "author": "yrZhaoWeb",
+  "homepage": "https://github.com/yrZhaoWeb/daily-sticky#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yrZhaoWeb/daily-sticky.git"
+  },
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run test && electron-vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "package:mac": "npm run build && electron-builder --mac --dir"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "electron-store": "^10.1.0",
+    "lucide-react": "^0.548.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "app.daily-sticky",
+    "productName": "Daily Sticky",
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}
